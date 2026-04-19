@@ -1,22 +1,37 @@
-name: Build Gaster
+name: Build and Release Gaster
 
-on: [push, workflow_dispatch]
+on: 
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build-macos:
-    runs-on: macos-latest
+    # Use macos-13 because it is the last runner that is Intel-based by default
+    runs-on: macos-13 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4  # Updated to v4
+        uses: actions/checkout@v4
 
       - name: Install dependencies
         run: brew install libusb
 
-      - name: Compile Gaster
-        run: make
+      - name: Compile Universal Gaster
+        run: |
+          # This command tells the compiler to build for both CPU types
+          gcc -I$(brew --prefix libusb)/include -L$(brew --prefix libusb)/lib -lusb-1.0 gaster.c -o gaster -arch x86_64 -arch arm64
 
-      - name: Upload Binary
-        uses: actions/upload-artifact@v4  # Updated to v4
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: gaster-macos
-          path: gaster
+          tag_name: latest
+          name: "Universal Gaster Binary"
+          body: "This version works on BOTH Intel and M1/M2/M3 Macs."
+          draft: false
+          prerelease: false
+          files: gaster
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
